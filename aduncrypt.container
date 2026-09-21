@@ -16,7 +16,11 @@ Volume=%h/aduncrypt/dnscrypt:/opt/dnscrypt
 Volume=aduncrypt-unbound:/var/lib/unbound
 Volume=aduncrypt-dnscrypt-cache:/var/cache/dnscrypt-proxy
 
-# Kill the container when the healthcheck fails so systemd restarts it
+HealthCmd=sh /opt/scripts/healthcheck.sh
+HealthInterval=30s
+HealthTimeout=15s
+HealthStartPeriod=30s
+HealthRetries=3
 HealthOnFailure=kill
 
 # Every service runs as its own unprivileged user. Drop every capability and

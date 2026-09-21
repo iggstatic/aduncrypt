@@ -23,6 +23,14 @@ services:
     read_only: true
     tmpfs:
       - /tmp
+    # The image is published in OCI format, which has no healthcheck field, so
+    # declare it here
+    healthcheck:
+      test: ["CMD", "sh", "/opt/scripts/healthcheck.sh"]
+      interval: 30s
+      timeout: 15s
+      start_period: 30s
+      retries: 3
     volumes:
       - "./adguard/opt-adguard-work:/opt/adguardhome/work"
       - "./adguard/opt-adguard-conf:/opt/adguardhome/conf"
