@@ -69,10 +69,13 @@ podman-compose up -d
 
    - `127.0.0.1:5353`
 
+   Answers served through the fallback are still encrypted, but they skip Unbound's DNSSEC validation. The container exits (and restarts) if Unbound dies, so this path should only ever be used briefly.
+
 3. **Bootstrap DNS servers** can be left empty — it is only used to resolve hostnames of encrypted upstreams and both upstreams above are IP addresses.
 4. Keep the default **Load-balancing** upstream mode (don't enable **Parallel requests**, otherwise queries bypass Unbound's cache).
 5. Uncheck **Enable cache** or set **DNS cache size** to `0` (caching is handled by Unbound)
-6. Add blocklists in **Filters** → **DNS blocklists**:
+6. Enable **DNSSEC** in **DNS server configuration**. Validation is done by Unbound; this just passes the result on to clients.
+7. Add blocklists in **Filters** → **DNS blocklists**:
    - [Blocklists and Allowlists Sources](https://github.com/T145/black-mirror)
 
 ### Host System DNS Configuration
@@ -205,12 +208,12 @@ The following ports are commented out in `compose.yml` but can be enabled as nee
 
 ## 🔧 Customization
 
-Unbound forwards all queries to `dnscrypt-proxy`, which is configured to use Cloudflare's [Oblivious DNS-over-HTTPS](https://github.com/DNSCrypt/dnscrypt-proxy/wiki/Oblivious-DoH) target via public ODoH relays. To use a different ODoH server or relay, edit `server_names` and `routes` in `dnscrypt/dnscrypt-proxy.toml`. To forward straight to a public DNS-over-TLS resolver instead, see the commented examples in the `forward-zone` section of `unbound/unbound.conf`. All configuration files are mounted as volumes for easy customization:
+Unbound forwards all queries to `dnscrypt-proxy`, which is configured to use Cloudflare's and crypto.sx's [Oblivious DNS-over-HTTPS](https://github.com/DNSCrypt/dnscrypt-proxy/wiki/Oblivious-DoH) targets via public ODoH relays. To use a different ODoH server or relay, edit `server_names` and `routes` in `dnscrypt/dnscrypt-proxy.toml`. To forward straight to a public DNS-over-TLS resolver instead, see the commented examples in the `forward-zone` section of `unbound/unbound.conf`. All configuration files are mounted as volumes for easy customization:
 
 - **`unbound/unbound.conf`** - Unbound DNS resolver settings
 - **`dnscrypt/dnscrypt-proxy.toml`** - DNSCrypt-proxy configuration
-- **`adguard/adguard/opt-adguard-conf`** - AdGuard Home configuration
-- **`adguard/adguard/opt-adguard-work`** - AdGuard Home data
+- **`adguard/opt-adguard-conf`** - AdGuard Home configuration
+- **`adguard/opt-adguard-work`** - AdGuard Home data
 
 You have full control to adjust the configuration as you see fit.
 

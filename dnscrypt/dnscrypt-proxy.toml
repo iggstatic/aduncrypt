@@ -20,9 +20,11 @@ dnscrypt_servers = false
 odoh_servers = true
 doh_servers = false
 
-# Currently configured for ODoH (Oblivious DoH) with Cloudflare.
+# ODoH (Oblivious DoH) targets. Cloudflare is the primary; crypto.sx (anycast,
+# no logs, DNSSEC) is a second target so resolution keeps working if one is down.
+# dnscrypt-proxy load-balances between them and drops any that stop responding.
 # For other ODoH servers, go to: https://github.com/DNSCrypt/dnscrypt-resolvers/blob/master/v3/odoh-servers.md
-server_names = ['odoh-cloudflare']
+server_names = ['odoh-cloudflare', 'odoh-crypto-sx']
 
 # Resolvers used only to fetch the server lists and check connectivity at
 # startup. Never rely on the container's /etc/resolv.conf, which may point
@@ -32,11 +34,14 @@ bootstrap_resolvers = ['9.9.9.11:53', '8.8.8.8:53']
 netprobe_address = '9.9.9.9:53'
 
 # ODoH queries are encrypted for the target and sent through a relay, so the
-# target never sees the client IP and the relay never sees the query.
+# target never sees the client IP and the relay never sees the query. A relay
+# and a target run by the same operator must not be paired, or that operator
+# sees both, which is why odoh-crypto-sx is only routed through the Numa relay.
 # Relays: https://github.com/DNSCrypt/dnscrypt-resolvers/blob/master/v3/odoh-relays.md
 [anonymized_dns]
 routes = [
-    { server_name='odoh-cloudflare', via=['odohrelay-crypto-sx', 'odohrelay-numa'] }
+    { server_name='odoh-cloudflare', via=['odohrelay-crypto-sx', 'odohrelay-numa'] },
+    { server_name='odoh-crypto-sx', via=['odohrelay-numa'] }
 ]
 
 # ODoH (Oblivious DoH) servers and relays

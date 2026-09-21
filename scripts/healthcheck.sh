@@ -2,10 +2,19 @@
 
 FILE=/opt/adguardhome/conf/AdGuardHome.yaml
 
-if [ ! -f "$FILE" ]
-then
-   wget -q --spider --timeout=1 http://localhost:3000 && printf 'Waiting for config to be finished' || exit 1
-elif PORT="$(grep '^bind_port:' "$FILE" | cut -f2 -d' ')" && ! wget -q --spider --timeout=1 "http://localhost:$PORT"
-then
-    exit 1
+# Before the setup wizard has been completed only the wizard on port 3000 exists
+if [ ! -f "$FILE" ]; then
+  wget -q --spider --timeout=1 http://localhost:3000 && printf 'Waiting for config to be finished' || exit 1
+  exit 0
 fi
+
+# Ports come from the AdGuard Home config: "address: 0.0.0.0:80" under "http:"
+# and "port: 53" under "dns:"
+WEB_ADDR=$(awk '/^http:/{s=1;next} /^[^ ]/{s=0} s && /^  address:/{print $2; exit}' "$FILE")
+WEB_PORT=${WEB_ADDR##*:}
+DNS_PORT=$(awk '/^dns:/{s=1;next} /^[^ ]/{s=0} s && /^  port:/{print $2; exit}' "$FILE")
+
+wget -q --spider --timeout=1 "http://localhost:${WEB_PORT:-80}" || exit 1
+
+# End-to-end resolution through AdGuard Home -> Unbound -> dnscrypt-proxy
+dig @127.0.0.1 -p "${DNS_PORT:-53}" +time=3 +tries=1 +short cloudflare.com | grep -q . || exit 1
