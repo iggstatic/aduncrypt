@@ -1,10 +1,12 @@
 #!/bin/sh
 set -e
 
-if [ ! -f /var/lib/unbound/root.key ]; then
-  echo "Bootstrapping the root trust anchor for DNSSEC validation..."
-  unbound-anchor -a /var/lib/unbound/root.key || [ $? -eq 1 ]
-fi
+# Bootstrap or refresh the root trust anchor for DNSSEC validation. Unbound
+# tracks key rollovers (RFC 5011) only while it is running, so also run this
+# on every start in case the container was stopped across a rollover.
+# unbound-anchor exits 1 when it had to update the key, which is not an error.
+echo "Checking the root trust anchor for DNSSEC validation..."
+unbound-anchor -a /var/lib/unbound/root.key || [ $? -eq 1 ]
 
 # Every service runs as its own unprivileged user. AdGuard Home keeps
 # CAP_NET_BIND_SERVICE as an ambient capability so it can bind ports 53 and

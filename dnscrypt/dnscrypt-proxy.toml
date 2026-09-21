@@ -24,9 +24,10 @@ dnscrypt_servers = false
 odoh_servers = true
 doh_servers = false
 
-# ODoH (Oblivious DoH) targets. Cloudflare is the primary; crypto.sx (anycast,
-# no logs, DNSSEC) is a second target so resolution keeps working if one is down.
-# dnscrypt-proxy load-balances between them and drops any that stop responding.
+# ODoH (Oblivious DoH) targets, both no-log with DNSSEC. Cloudflare is the
+# primary; crypto.sx (anycast, Scaleway) is a second target so resolution keeps
+# working if one is down. dnscrypt-proxy load-balances between them by measured
+# latency and drops any that stop responding.
 # For other ODoH servers, go to: https://github.com/DNSCrypt/dnscrypt-resolvers/blob/master/v3/odoh-servers.md
 server_names = ['odoh-cloudflare', 'odoh-crypto-sx']
 
