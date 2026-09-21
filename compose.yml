@@ -13,7 +13,7 @@ services:
       - SETGID
       - KILL # supervising the service processes
       - DAC_OVERRIDE # reading bind-mounted config files regardless of owner
-    #- NET_RAW # inherited by AdGuard Home when present, for its DHCP server
+      #- NET_RAW # inherited by AdGuard Home when present, for its DHCP server
     security_opt:
       - no-new-privileges:true
     read_only: true
@@ -38,11 +38,11 @@ services:
       - 53:53/udp # DNS
       - 80:80/tcp # AdGuard Home HTTP
       - 3000:3000/tcp # AdGuard Home setup wizard, not needed after setup
-#- 443:443/tcp # AdGuard Home HTTPS
-#- 443:443/udp # AdGuard Home HTTPS
-#- 853:853/tcp # AdGuard Home DNS-over-TLS/QUIC
-#- 67:67/udp # AdGuard Home DHCP (server)
-#- 68:68/udp # AdGuard Home DHCP (client)
+      #- 443:443/tcp # AdGuard Home HTTPS
+      #- 443:443/udp # AdGuard Home HTTPS
+      #- 853:853/tcp # AdGuard Home DNS-over-TLS/QUIC
+      #- 67:67/udp # AdGuard Home DHCP (server)
+      #- 68:68/udp # AdGuard Home DHCP (client)
 
 volumes:
   aduncrypt-unbound:
