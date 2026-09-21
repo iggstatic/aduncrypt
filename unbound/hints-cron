@@ -1,9 +1,0 @@
-SHELL=/bin/sh
-PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
-MAILTO=root
-
-# Every six months atomically update root.hints and reload Unbound
-1 0 1 */6 * /usr/bin/wget -qO /var/lib/unbound/root.hints.tmp https://www.internic.net/domain/named.root && \
-            /bin/mv /var/lib/unbound/root.hints.tmp /var/lib/unbound/root.hints && \
-            /bin/chown unbound:unbound /var/lib/unbound/root.hints && \
-            /usr/sbin/unbound-anchor -v -a /var/lib/unbound/root.key

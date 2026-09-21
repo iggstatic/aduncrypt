@@ -6,10 +6,8 @@ ARG TARGETVARIANT
 
 # Install packages, create directories, download files, and set permissions
 RUN apk --no-cache add ca-certificates libcap tzdata unbound dnscrypt-proxy bind-tools \
-    && mkdir -p /opt/adguardhome/conf /opt/adguardhome/work /etc/crontabs /var/lib/unbound /opt/unbound /opt/dnscrypt \
+    && mkdir -p /opt/adguardhome/conf /opt/adguardhome/work /var/lib/unbound /opt/unbound /opt/dnscrypt \
     && chown -R nobody:nogroup /opt/adguardhome \
-    && wget -qO /var/lib/unbound/root.hints https://www.internic.net/domain/named.root \
-    && chown unbound:unbound /var/lib/unbound/root.hints \
     && wget -O /tmp/adguard.tar.gz https://github.com/AdguardTeam/AdGuardHome/releases/download/${AGH_VER}/AdGuardHome_linux_${TARGETARCH}${TARGETVARIANT}.tar.gz \
     && tar xf /tmp/adguard.tar.gz ./AdGuardHome/AdGuardHome --strip-components=2 -C /opt/adguardhome \
     && chown nobody:nogroup /opt/adguardhome/AdGuardHome \
@@ -18,7 +16,6 @@ RUN apk --no-cache add ca-certificates libcap tzdata unbound dnscrypt-proxy bind
 
 # Copy files
 COPY unbound/unbound.conf /opt/unbound/unbound.conf
-COPY unbound/hints-cron /etc/crontabs/root  
 COPY dnscrypt/dnscrypt-proxy.toml /opt/dnscrypt/dnscrypt-proxy.toml
 COPY scripts/ /opt/scripts/
 
