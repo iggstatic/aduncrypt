@@ -13,10 +13,9 @@ A containerized DNS privacy solution combining [AdGuard Home](https://github.com
 ## ✨ Features
 
 - **Ad & tracker blocking** with AdGuard Home
-- **DNS caching and DNSSEC validation** via [Unbound](https://nlnetlabs.nl/projects/unbound/about/) recursive resolver
+- **DNS caching and DNSSEC validation** via [Unbound](https://nlnetlabs.nl/projects/unbound/about/), with the root trust anchor kept up to date automatically (RFC 5011)
 - **Encrypted DNS** through DNSCrypt-proxy with ODoH ([Oblivious DNS-over-HTTPS](https://github.com/DNSCrypt/dnscrypt-proxy/wiki/Oblivious-DoH))
-- **Anonymized routing** through relay servers for enhanced privacy
-- **Automatic root hints updates** every 6 months via cron
+- **Anonymized routing** through relay servers so the upstream resolver never sees your IP address
 - **Ready-to-deploy** with Podman/Docker Compose
 
 ## 🚀 Quick Start
@@ -38,15 +37,7 @@ sudo apt install podman podman-compose
 echo "net.ipv4.ip_unprivileged_port_start=53" | sudo tee /etc/sysctl.d/20-dns-privileged-port.conf
 ```
 
-2. **Optimize kernel buffers**:
-   Unbound is configured with a larger kernel buffer so that no messages are lost during spikes in the traffic. To match the parameters in `unbound/unbound.conf` run:
-
-```bash
-echo "net.core.rmem_max=4194304" | sudo tee /etc/sysctl.d/99-unbound-buffers.conf
-echo "net.core.wmem_max=4194304" | sudo tee -a /etc/sysctl.d/99-unbound-buffers.conf
-```
-
-3. **Apply changes**
+2. **Apply changes**
 ```bash
 sudo sysctl --system
 ```
@@ -68,14 +59,20 @@ podman-compose up -d
 
 ### Configure AdGuard Home
 
-1. Delete everything from both **Upstream** and **Bootstrap DNS servers** options and add the following addresses to point at the Unbound resolver:
+1. In **Settings** → **DNS settings**, replace everything in **Upstream DNS servers** with the Unbound resolver:
 
-   - `127.0.0.1:5053` (Unbound)
-   - `127.0.0.1:5353` (Direct fallback to Oblivious DNS over HTTPS)
+   - `127.0.0.1:5053`
 
-2. Put a tick ☑ next to **Parallel Request** option.
-3. In DNS settings, uncheck **Enable cache** or set **DNS cache size** to `0` (caching is handled by Unbound)
-4. Add blocklists in **Filters** → **DNS blocklists**:
+   Unbound caches, validates DNSSEC and forwards to DNSCrypt-proxy, which sends the query out over ODoH.
+
+2. In **Fallback DNS servers** add DNSCrypt-proxy directly, so DNS keeps working if Unbound is ever down:
+
+   - `127.0.0.1:5353`
+
+3. **Bootstrap DNS servers** can be left empty — it is only used to resolve hostnames of encrypted upstreams and both upstreams above are IP addresses.
+4. Keep the default **Load-balancing** upstream mode (don't enable **Parallel requests**, otherwise queries bypass Unbound's cache).
+5. Uncheck **Enable cache** or set **DNS cache size** to `0` (caching is handled by Unbound)
+6. Add blocklists in **Filters** → **DNS blocklists**:
    - [Blocklists and Allowlists Sources](https://github.com/T145/black-mirror)
 
 ### Host System DNS Configuration
@@ -159,6 +156,11 @@ podman logs -f aduncrypt
 # Test DNS resolution
 dig @127.0.0.1 google.com
 
+# Test DNSSEC validation: a signed domain must return the "ad" flag,
+# a badly signed one must fail
+dig @127.0.0.1 cloudflare.com +dnssec | grep flags
+dig @127.0.0.1 dnssec-failed.org
+
 # Test auto-update capability
 podman auto-update --dry-run
 
@@ -203,7 +205,7 @@ The following ports are commented out in `compose.yml` but can be enabled as nee
 
 ## 🔧 Customization
 
-Unbound is configured to use [Oblivious DNS-over-HTTPS](https://github.com/DNSCrypt/dnscrypt-proxy/wiki/Oblivious-DoH) via `dnscrypt-proxy`. DNS over TLS is querying Cloudflare upstream endpoints. All configuration files are mounted as volumes for easy customization:
+Unbound forwards all queries to `dnscrypt-proxy`, which is configured to use Cloudflare's [Oblivious DNS-over-HTTPS](https://github.com/DNSCrypt/dnscrypt-proxy/wiki/Oblivious-DoH) target via public ODoH relays. To use a different ODoH server or relay, edit `server_names` and `routes` in `dnscrypt/dnscrypt-proxy.toml`. To forward straight to a public DNS-over-TLS resolver instead, see the commented examples in the `forward-zone` section of `unbound/unbound.conf`. All configuration files are mounted as volumes for easy customization:
 
 - **`unbound/unbound.conf`** - Unbound DNS resolver settings
 - **`dnscrypt/dnscrypt-proxy.toml`** - DNSCrypt-proxy configuration
