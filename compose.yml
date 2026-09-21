@@ -1,6 +1,6 @@
 services:
   aduncrypt:
-    image: ghcr.io/igoresso/aduncrypt:latest
+    image: ghcr.io/iggstatic/aduncrypt:latest
     container_name: aduncrypt
     restart: unless-stopped
     volumes:

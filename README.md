@@ -1,8 +1,8 @@
 # 🔒 AdUnCrypt - Privacy-Focused DNS Stack
 
 ![AdGuard Home](https://img.shields.io/badge/AdGuard%20Home-v0.107.79-green?logo=adguard)
-![Build Status](https://img.shields.io/github/actions/workflow/status/igoresso/aduncrypt/publish.yml?branch=master&label=Build&logo=github)
-![License](https://img.shields.io/github/license/igoresso/aduncrypt?logo=gnu)
+![Build Status](https://img.shields.io/github/actions/workflow/status/iggstatic/aduncrypt/publish.yml?branch=master&label=Build&logo=github)
+![License](https://img.shields.io/github/license/iggstatic/aduncrypt?logo=gnu)
 ![Multi-Arch](https://img.shields.io/badge/platform-linux%2Famd64%20%7C%20linux%2Farm64%20%7C%20linux%2Farm%2Fv7-blue?logo=docker)
 ![DNS Flow](https://img.shields.io/badge/DNS%20Flow-AdGuard%20→%20Unbound%20→%20DNSCrypt-blue)
 ![Privacy](https://img.shields.io/badge/Privacy-ODoH%20Enabled-green)
@@ -56,7 +56,7 @@ sudo sysctl --system
 Download this repo and spin up a container:
 
 ```bash
-git clone https://github.com/igoresso/aduncrypt.git
+git clone https://github.com/iggstatic/aduncrypt.git
 cd aduncrypt
 podman-compose up -d
 ```

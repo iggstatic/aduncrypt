@@ -1,11 +1,11 @@
 [Unit]
 Description=AdUnCrypt DNS Stack
-Documentation=https://github.com/igoresso/aduncrypt
+Documentation=https://github.com/iggstatic/aduncrypt
 After=network-online.target
 Wants=network-online.target
 
 [Container]
-Image=ghcr.io/igoresso/aduncrypt:latest
+Image=ghcr.io/iggstatic/aduncrypt:latest
 ContainerName=aduncrypt
 AutoUpdate=registry
 
