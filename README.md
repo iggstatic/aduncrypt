@@ -46,12 +46,12 @@ sudo sysctl --system
 <details>
 <summary><b>Using Docker instead?</b></summary>
 
-The compose file works unchanged with `docker compose`, and the port 53 sysctl step above is not needed on rootful Docker. Rootful Docker runs container root as real host root, though. Prefer [rootless Docker](https://docs.docker.com/engine/security/rootless/) or enable [`userns-remap`](https://docs.docker.com/engine/security/userns-remap/) so the container gets the same user-namespace isolation rootless Podman provides by default. Only the entrypoint runs as root inside the container: AdGuard Home, Unbound and DNSCrypt-proxy each run as their own unprivileged user, the compose file drops every capability the entrypoint does not need, and the image's filesystem is mounted read-only apart from the volumes.
+The compose file works unchanged with `docker compose`, and the port 53 sysctl step above is not needed on rootful Docker. Rootful Docker runs container root as real host root, though. Prefer [rootless Docker](https://docs.docker.com/engine/security/rootless/) or enable [`userns-remap`](https://docs.docker.com/engine/security/userns-remap/) so the container gets the same user-namespace isolation rootless Podman provides by default.
 
 </details>
 
 > [!NOTE]
-> The entrypoint changes the owner of `adguard/opt-adguard-conf` and `adguard/opt-adguard-work` to the container's `adguard` user. Under rootless Podman that shows up on the host as one of your sub-UIDs; use `podman unshare ls -l adguard` or `podman unshare chown -R $(id -u) adguard` if you need to edit the files directly.
+> Only the entrypoint runs as root inside the container. AdGuard Home, Unbound and DNSCrypt-proxy each run as their own unprivileged user, the compose file drops every capability the entrypoint does not need, and the image's filesystem is mounted read-only apart from the volumes. As part of this the entrypoint changes the owner of `adguard/opt-adguard-conf` and `adguard/opt-adguard-work` to the container's `adguard` user. Under rootless Podman that shows up on the host as one of your sub-UIDs. Use `podman unshare ls -l adguard` or `podman unshare chown -R $(id -u) adguard` if you need to edit the files directly.
 
 ### Deployment
 
