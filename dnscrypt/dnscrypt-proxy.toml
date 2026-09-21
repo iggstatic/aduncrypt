@@ -24,6 +24,13 @@ dnscrypt_servers = false
 odoh_servers = true
 doh_servers = false
 
+# Refuse to use a server from the lists below unless it validates DNSSEC,
+# declares that it does not log, and does not apply its own blocklist. This
+# guards against a typo in server_names silently picking a weaker resolver.
+require_dnssec = true
+require_nolog = true
+require_nofilter = true
+
 # ODoH (Oblivious DoH) targets, both no-log with DNSSEC. Cloudflare is the
 # primary; crypto.sx (anycast, Scaleway) is a second target so resolution keeps
 # working if one is down. dnscrypt-proxy load-balances between them by measured

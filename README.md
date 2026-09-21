@@ -38,12 +38,17 @@ echo "net.ipv4.ip_unprivileged_port_start=53" | sudo tee /etc/sysctl.d/20-dns-pr
 ```
 
 2. **Apply changes**
+
 ```bash
 sudo sysctl --system
 ```
 
-> [!NOTE]
-> **Using Docker instead?** The compose file works unchanged with `docker compose`, and the port 53 sysctl step above is not needed on rootful Docker. Rootful Docker runs container root as real host root, though. Prefer [rootless Docker](https://docs.docker.com/engine/security/rootless/) or enable [`userns-remap`](https://docs.docker.com/engine/security/userns-remap/) so the container gets the same user-namespace isolation rootless Podman provides by default. Only the entrypoint runs as root inside the container: AdGuard Home, Unbound and DNSCrypt-proxy each run as their own unprivileged user, and the compose file drops every capability the entrypoint does not need.
+<details>
+<summary><b>Using Docker instead?</b></summary>
+
+The compose file works unchanged with `docker compose`, and the port 53 sysctl step above is not needed on rootful Docker. Rootful Docker runs container root as real host root, though. Prefer [rootless Docker](https://docs.docker.com/engine/security/rootless/) or enable [`userns-remap`](https://docs.docker.com/engine/security/userns-remap/) so the container gets the same user-namespace isolation rootless Podman provides by default. Only the entrypoint runs as root inside the container: AdGuard Home, Unbound and DNSCrypt-proxy each run as their own unprivileged user, the compose file drops every capability the entrypoint does not need, and the image's filesystem is mounted read-only apart from the volumes.
+
+</details>
 
 > [!NOTE]
 > The entrypoint changes the owner of `adguard/opt-adguard-conf` and `adguard/opt-adguard-work` to the container's `adguard` user. Under rootless Podman that shows up on the host as one of your sub-UIDs; use `podman unshare ls -l adguard` or `podman unshare chown -R $(id -u) adguard` if you need to edit the files directly.
@@ -71,17 +76,13 @@ podman-compose up -d
 
    Unbound caches, validates DNSSEC and forwards to DNSCrypt-proxy, which sends the query out over ODoH.
 
-2. In **Fallback DNS servers** add DNSCrypt-proxy directly, so DNS keeps working if Unbound is ever down:
-
-   - `127.0.0.1:5353`
-
-   Answers served through the fallback are still encrypted, but they skip Unbound's DNSSEC validation. The container exits (and restarts) if Unbound dies, so this path should only ever be used briefly.
-
-3. **Bootstrap DNS servers** can be left empty — it is only used to resolve hostnames of encrypted upstreams and both upstreams above are IP addresses.
+2. Leave **Fallback DNS servers** empty. Adding DNSCrypt-proxy (`127.0.0.1:5353`) here would keep DNS working if Unbound ever hangs, but those answers would silently skip DNSSEC validation and DNS rebinding protection. The container restarts itself if Unbound exits, and under Quadlet the healthcheck restarts it if Unbound hangs, so a short outage is preferable to an unvalidated answer.
+3. **Bootstrap DNS servers** can be left empty — it is only used to resolve hostnames of encrypted upstreams and the upstream above is an IP address.
 4. Keep the default **Load-balancing** upstream mode (don't enable **Parallel requests**, otherwise queries bypass Unbound's cache).
 5. Uncheck **Enable cache** or set **DNS cache size** to `0` (caching is handled by Unbound)
 6. Enable **DNSSEC** in **DNS server configuration**. Validation is done by Unbound; this just passes the result on to clients.
-7. Add blocklists in **Filters** → **DNS blocklists**:
+7. Under **Private reverse DNS servers** enter your router's IP address (e.g. `192.168.1.1`) so client names show up in the query log. By default AdGuard Home sends reverse lookups for LAN addresses to the container's system resolver, which points back at the host and therefore at AdGuard Home itself. AdGuard Home detects the loop and answers NXDOMAIN, so client names never resolve. If your router does not answer reverse lookups (test with `dig -x <client-ip> @<router-ip>`), untick **Use private reverse DNS resolvers** instead.
+8. Add blocklists in **Filters** → **DNS blocklists**:
    - [Blocklists and Allowlists Sources](https://github.com/T145/black-mirror)
 
 ### Host System DNS Configuration
@@ -103,8 +104,9 @@ sudo systemctl restart systemd-resolved
 cat /etc/resolv.conf
 
 # Should contain: nameserver 127.0.0.1
-# If not, update it:
-echo "nameserver 127.0.0.1" | sudo tee /etc/resolv.conf
+# If it still points at the stub (127.0.0.53), switch the symlink to the file
+# systemd-resolved writes from the DNS= setting above:
+sudo ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf
 ```
 
 ### Enable Auto-Start (Optional)
@@ -147,7 +149,7 @@ podman-compose up -d
 ```
 
 > [!NOTE]  
-> Manual restart required after system reboot.
+> Manual restart required after system reboot. Compose also does not restart a container that only fails its healthcheck (the Quadlet file does, via `HealthOnFailure=kill`); the entrypoint restarts the whole stack if any service exits, which covers the common failures.
 
 ### Verify everything is working
 
@@ -166,9 +168,9 @@ podman logs -f aduncrypt
 dig @127.0.0.1 google.com
 
 # Test DNSSEC validation: a signed domain must return the "ad" flag,
-# a badly signed one must fail
+# a badly signed one must return "status: SERVFAIL" with no answer
 dig @127.0.0.1 cloudflare.com +dnssec | grep flags
-dig @127.0.0.1 dnssec-failed.org
+dig @127.0.0.1 dnssec-failed.org | grep status
 
 # Test auto-update capability
 podman auto-update --dry-run

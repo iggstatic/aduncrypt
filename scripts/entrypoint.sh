@@ -16,13 +16,21 @@ if setpriv --inh-caps +net_raw true 2>/dev/null; then
   AGH_CAPS="$AGH_CAPS,+net_raw"
 fi
 
-chown -R unbound:unbound /var/lib/unbound
-chown -R dnscrypt:dnscrypt /var/cache/dnscrypt-proxy
+# Give each service its directories. Only walk a tree when its top level is
+# owned by someone else (first start, or files edited from the host), so a
+# large AdGuard Home query log does not slow down every restart.
+own() {
+  user=$1; shift
+  for dir in "$@"; do
+    [ "$(stat -c %U "$dir")" = "$user" ] || chown -R "$user:$user" "$dir"
+  done
+}
+own unbound /var/lib/unbound
+own dnscrypt /var/cache/dnscrypt-proxy
 
 echo "Setting correct permissions for AdGuard Home directories..."
-chown -R adguard:adguard /opt/adguardhome/work /opt/adguardhome/conf
-chmod 700 /opt/adguardhome/work
-chmod 700 /opt/adguardhome/conf
+own adguard /opt/adguardhome/work /opt/adguardhome/conf
+chmod 700 /opt/adguardhome/work /opt/adguardhome/conf
 
 echo "Checking Unbound configuration..."
 su-exec unbound unbound-checkconf /opt/unbound/unbound.conf
@@ -36,7 +44,7 @@ su-exec dnscrypt dnscrypt-proxy -config /opt/dnscrypt/dnscrypt-proxy.toml &
 DNSCRYPT_PID=$!
 
 echo "Starting Unbound DNS resolver..."
-su-exec unbound unbound -d -c /opt/unbound/unbound.conf &
+su-exec unbound unbound -c /opt/unbound/unbound.conf &
 UNBOUND_PID=$!
 
 echo "Starting AdGuard Home (capabilities: $AGH_CAPS)..."

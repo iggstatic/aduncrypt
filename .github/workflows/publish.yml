@@ -70,7 +70,7 @@ jobs:
             org.opencontainers.image.title=AdUnCrypt
             org.opencontainers.image.description=Privacy-focused DNS stack with AdGuard Home, Unbound, and DNSCrypt-proxy
             org.opencontainers.image.vendor=${{ github.repository_owner }}
-            org.opencontainers.image.licenses=MIT
+            org.opencontainers.image.licenses=GPL-3.0-only
 
       - name: Build for testing
         id: build-test
@@ -107,6 +107,7 @@ jobs:
             --cap-add NET_BIND_SERVICE --cap-add CHOWN --cap-add FOWNER \
             --cap-add SETUID --cap-add SETGID --cap-add KILL --cap-add DAC_OVERRIDE \
             --security-opt no-new-privileges:true \
+            --read-only --tmpfs /tmp \
             -p 127.0.0.1:3000:3000 -p 127.0.0.1:8080:80 \
             test-image:latest
 
@@ -141,7 +142,7 @@ jobs:
           echo "⚙️ Applying the upstream settings from the README..."
           curl -sSf -u "$AGH_USER:$AGH_PASS" -X POST http://127.0.0.1:8080/control/dns_config \
             -H 'Content-Type: application/json' \
-            -d '{"upstream_dns":["127.0.0.1:5053"],"fallback_dns":["127.0.0.1:5353"],"bootstrap_dns":[],"upstream_mode":"load_balance","cache_size":0,"dnssec_enabled":true}'
+            -d '{"upstream_dns":["127.0.0.1:5053"],"fallback_dns":[],"bootstrap_dns":[],"upstream_mode":"load_balance","cache_size":0,"dnssec_enabled":true}'
           sleep 2
 
           echo "🌐 Testing DNS resolution chain through AdGuard Home (port 53)..."

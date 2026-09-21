@@ -18,6 +18,11 @@ services:
       #- NET_RAW # passed on to AdGuard Home only if present, needed for its DHCP server
     security_opt:
       - no-new-privileges:true
+    # Everything the services write lives in the volumes below, so the rest of
+    # the image can be read-only. /tmp is a private tmpfs for scratch files.
+    read_only: true
+    tmpfs:
+      - /tmp
     volumes:
       - "./adguard/opt-adguard-work:/opt/adguardhome/work"
       - "./adguard/opt-adguard-conf:/opt/adguardhome/conf"
