@@ -13,7 +13,7 @@ compose.yml
 .git
 .gitignore
 README.md
-\*.md
+*.md
 LICENSE*
 CHANGELOG*
 CONTRIBUTING*
@@ -24,8 +24,8 @@ adguard/opt-adguard-conf/
 
 # Development files
 .vscode/
-_.log
-_.tmp
+*.log
+*.tmp
 
 # OS files
 .DS_Store
