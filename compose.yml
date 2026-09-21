@@ -3,28 +3,22 @@ services:
     image: ghcr.io/iggstatic/aduncrypt:latest
     container_name: aduncrypt
     restart: unless-stopped
-    # Every service runs as its own unprivileged user. Drop every capability
-    # and add back only what the entrypoint needs before it hands off to them.
     cap_drop:
       - ALL
     cap_add:
-      - NET_BIND_SERVICE # passed on to AdGuard Home for ports 53 and 80
-      - CHOWN # entrypoint chowns the service directories
-      - FOWNER # entrypoint chmods the AdGuard Home directories
-      - SETUID # entrypoint switches to the service users
+      - NET_BIND_SERVICE # inherited by AdGuard Home for ports 53 and 80
+      - CHOWN # ownership of the service directories
+      - FOWNER # permissions of the AdGuard Home directories
+      - SETUID # switching to the service users
       - SETGID
-      - KILL # entrypoint watches and signals the service processes
-      - DAC_OVERRIDE # read bind-mounted config files regardless of owner
-      #- NET_RAW # passed on to AdGuard Home only if present, needed for its DHCP server
+      - KILL # supervising the service processes
+      - DAC_OVERRIDE # reading bind-mounted config files regardless of owner
+    #- NET_RAW # inherited by AdGuard Home when present, for its DHCP server
     security_opt:
       - no-new-privileges:true
-    # Everything the services write lives in the volumes below, so the rest of
-    # the image can be read-only. /tmp is a private tmpfs for scratch files.
     read_only: true
     tmpfs:
       - /tmp
-    # The image is published in OCI format, which has no healthcheck field, so
-    # declare it here
     healthcheck:
       test: ["CMD", "sh", "/opt/scripts/healthcheck.sh"]
       interval: 30s
@@ -43,12 +37,12 @@ services:
       - 53:53/tcp # DNS
       - 53:53/udp # DNS
       - 80:80/tcp # AdGuard Home HTTP
-      - 3000:3000/tcp # AdGuard Home install wizard (remove after setup)
-      #- 443:443/tcp # AdGuard Home HTTPS
-      #- 443:443/udp # AdGuard Home HTTPS
-      #- 853:853/tcp # AdGuard Home DNS-over-TLS/QUIC
-      #- 67:67/udp # AdGuard Home DHCP (server)
-      #- 68:68/udp # AdGuard Home DHCP (client)
+      - 3000:3000/tcp # AdGuard Home setup wizard, not needed after setup
+#- 443:443/tcp # AdGuard Home HTTPS
+#- 443:443/udp # AdGuard Home HTTPS
+#- 853:853/tcp # AdGuard Home DNS-over-TLS/QUIC
+#- 67:67/udp # AdGuard Home DHCP (server)
+#- 68:68/udp # AdGuard Home DHCP (client)
 
 volumes:
   aduncrypt-unbound:
