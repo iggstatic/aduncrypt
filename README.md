@@ -172,6 +172,10 @@ dig @127.0.0.1 google.com
 dig @127.0.0.1 cloudflare.com +dnssec | grep flags
 dig @127.0.0.1 dnssec-failed.org | grep status
 
+# Check the root trust anchor: the root zone is signed with key 38696 from
+# October 2026, so that tag must be listed (the container logs it at start)
+podman exec aduncrypt grep -o 'id = [0-9]*' /var/lib/unbound/root.key
+
 # Test auto-update capability
 podman auto-update --dry-run
 

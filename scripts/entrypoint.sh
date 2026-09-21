@@ -1,13 +1,6 @@
 #!/bin/sh
 set -e
 
-# Bootstrap or refresh the root trust anchor for DNSSEC validation. Unbound
-# tracks key rollovers (RFC 5011) only while it is running, so also run this
-# on every start in case the container was stopped across a rollover.
-# unbound-anchor exits 1 when it had to update the key, which is not an error.
-echo "Checking the root trust anchor for DNSSEC validation..."
-unbound-anchor -a /var/lib/unbound/root.key || [ $? -eq 1 ]
-
 # Every service runs as its own unprivileged user. AdGuard Home keeps
 # CAP_NET_BIND_SERVICE as an ambient capability so it can bind ports 53 and
 # 80, plus CAP_NET_RAW for its DHCP server if the container was granted it.
@@ -27,6 +20,12 @@ own() {
 }
 own unbound /var/lib/unbound
 own dnscrypt /var/cache/dnscrypt-proxy
+
+# Refresh the DNSSEC root trust anchor on every start, in case a key rollover
+# happened while the container was stopped. Exit code 1 means it was updated.
+echo "Checking the root trust anchor for DNSSEC validation..."
+su-exec unbound unbound-anchor -a /var/lib/unbound/root.key || [ $? -eq 1 ]
+echo "Trusted root key tags: $(grep -o 'id = [0-9]*' /var/lib/unbound/root.key | cut -d' ' -f3 | tr '\n' ' ')"
 
 echo "Setting correct permissions for AdGuard Home directories..."
 own adguard /opt/adguardhome/work /opt/adguardhome/conf
