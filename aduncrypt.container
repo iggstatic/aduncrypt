@@ -19,7 +19,9 @@ Volume=aduncrypt-dnscrypt-cache:/var/cache/dnscrypt-proxy
 # Kill the container when the healthcheck fails so systemd restarts it
 HealthOnFailure=kill
 
-# Drop every capability and add back only what the stack needs
+# Every service runs as its own unprivileged user. Drop every capability and
+# add back only what the entrypoint needs; NET_BIND_SERVICE is passed on to
+# AdGuard Home for ports 53 and 80.
 DropCapability=ALL
 AddCapability=NET_BIND_SERVICE CHOWN FOWNER SETUID SETGID KILL DAC_OVERRIDE
 # Add NET_RAW above if you enable the AdGuard Home DHCP server

@@ -8,8 +8,9 @@
 #   - listen to all IPv4+IPv6 addresses: use `listen_addresses = ['[::]:53']`
 listen_addresses = ['127.0.0.1:5353']
 
-# Bind the listening socket as root, then drop privileges to this user
-user_name = 'dnscrypt'
+# The entrypoint already starts dnscrypt-proxy as the dnscrypt user, so there
+# are no privileges to drop here
+# user_name = 'dnscrypt'
 
 # Use servers reachable over IPv6
 ipv6_servers = false

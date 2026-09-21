@@ -5,10 +5,13 @@ ARG TARGETARCH
 ARG TARGETVARIANT
 
 # Install packages, create directories, download files, and set permissions
-RUN apk --no-cache add ca-certificates tzdata unbound dnscrypt-proxy drill \
+RUN apk --no-cache add ca-certificates tzdata unbound dnscrypt-proxy drill su-exec setpriv \
+    && addgroup -S adguard \
+    && adduser -S -D -H -h /opt/adguardhome -s /sbin/nologin -G adguard -g "AdGuard Home user" adguard \
     && mkdir -p /opt/adguardhome/conf /opt/adguardhome/work /var/lib/unbound /opt/unbound /opt/dnscrypt \
     && wget -O /tmp/adguard.tar.gz https://github.com/AdguardTeam/AdGuardHome/releases/download/${AGH_VER}/AdGuardHome_linux_${TARGETARCH}${TARGETVARIANT}.tar.gz \
     && tar xf /tmp/adguard.tar.gz ./AdGuardHome/AdGuardHome --strip-components=2 -C /opt/adguardhome \
+    && chown -R adguard:adguard /opt/adguardhome \
     && rm -rf /tmp/*
 
 # Copy files
