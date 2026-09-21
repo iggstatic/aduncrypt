@@ -96,82 +96,78 @@ jobs:
 
       - name: Functionality test
         timeout-minutes: 10
+        env:
+          AGH_USER: admin
+          AGH_PASS: ci-only-password
         run: |
-          echo "🧪 Testing DNS resolution chain..."
-          if ! docker run --rm --name aduncrypt-test -d --platform linux/amd64 test-image:latest; then
-            echo "❌ Failed to start container"
-            exit 1
-          fi
+          set -euo pipefail
+          # Same restrictions as compose.yml: no root services, minimal capabilities
+          docker run -d --name aduncrypt-test --platform linux/amd64 \
+            --cap-drop ALL \
+            --cap-add NET_BIND_SERVICE --cap-add CHOWN --cap-add FOWNER \
+            --cap-add SETUID --cap-add SETGID --cap-add KILL --cap-add DAC_OVERRIDE \
+            --security-opt no-new-privileges:true \
+            -p 127.0.0.1:3000:3000 -p 127.0.0.1:8080:80 \
+            test-image:latest
 
-          echo "⏳ Waiting for services to start..."
-          sleep 10
-
-          echo "🔍 Checking service processes..."
-          if docker exec aduncrypt-test pgrep unbound > /dev/null 2>&1; then
-            echo "✅ Unbound process running"
-          else
-            echo "❌ Unbound not running" && exit 1
-          fi
-
-          if docker exec aduncrypt-test pgrep dnscrypt-proxy > /dev/null 2>&1; then
-            echo "✅ DNSCrypt-proxy process running"
-          else
-            echo "❌ DNSCrypt-proxy not running" && exit 1
-          fi
-
-          if docker exec aduncrypt-test pgrep AdGuardHome > /dev/null 2>&1; then
-            echo "✅ AdGuard Home process running"
-          else
-            echo "❌ AdGuard Home not running" && exit 1
-          fi
-
-          echo "🔍 Testing AdGuard Home web interface..."
-          for i in {1..5}; do
-            if docker exec aduncrypt-test wget -q --spider --timeout=10 http://127.0.0.1:3000 > /dev/null 2>&1; then
-              echo "✅ AdGuard Home web interface accessible"
-              break
+          echo "⏳ Waiting for the container to report healthy..."
+          for i in $(seq 1 30); do
+            status=$(docker inspect --format '{{.State.Health.Status}}' aduncrypt-test)
+            [ "$status" = healthy ] && break
+            if [ "$status" = unhealthy ] || [ "$i" -eq 30 ]; then
+              echo "❌ Container is $status"; docker logs aduncrypt-test; exit 1
             fi
-            echo "⏳ Attempt $i/5: Waiting for AdGuard Home web interface..."
-            sleep 5
-            if [ $i -eq 5 ]; then
-              echo "❌ AdGuard Home web interface not accessible after 25 seconds"
-              exit 1
-            fi
+            sleep 2
+          done
+          echo "✅ Container healthy"
+
+          echo "🔍 Checking that no service runs as root..."
+          docker exec aduncrypt-test ps -o user,comm | tee /dev/stderr \
+            | awk '$2 ~ /^(dnscrypt-proxy|unbound|AdGuardHome)$/ { seen[$2]=$1 }
+                   END { n=0; for (s in seen) { n++; if (seen[s]=="root") { print "❌ " s " runs as root"; exit 1 } }
+                         if (n!=3) { print "❌ expected 3 services, found " n; exit 1 } }'
+          echo "✅ All services run unprivileged"
+
+          echo "🧙 Completing the AdGuard Home setup wizard through its API..."
+          curl -sSf -X POST http://127.0.0.1:3000/control/install/configure \
+            -H 'Content-Type: application/json' \
+            -d "{\"web\":{\"ip\":\"0.0.0.0\",\"port\":80},\"dns\":{\"ip\":\"0.0.0.0\",\"port\":53},\"username\":\"$AGH_USER\",\"password\":\"$AGH_PASS\"}"
+          for i in $(seq 1 15); do
+            curl -sf -o /dev/null -u "$AGH_USER:$AGH_PASS" http://127.0.0.1:8080/control/status && break
+            [ "$i" -eq 15 ] && { echo "❌ Web UI not up on port 80"; docker logs aduncrypt-test; exit 1; }
+            sleep 2
           done
 
-          echo "🌐 Testing DNS resolution chain..."
+          echo "⚙️ Applying the upstream settings from the README..."
+          curl -sSf -u "$AGH_USER:$AGH_PASS" -X POST http://127.0.0.1:8080/control/dns_config \
+            -H 'Content-Type: application/json' \
+            -d '{"upstream_dns":["127.0.0.1:5053"],"fallback_dns":["127.0.0.1:5353"],"bootstrap_dns":[],"upstream_mode":"load_balance","cache_size":0,"dnssec_enabled":true}'
+          sleep 2
 
-          # Test DNSCrypt-proxy
-          DNSCRYPT_RESULT=$(docker exec aduncrypt-test drill -p 5353 google.com @127.0.0.1 A | awk '/^google\.com\./ && $4=="A" {print $5; exit}')
-          if [ -n "$DNSCRYPT_RESULT" ]; then
-            echo "✅ DNSCrypt-proxy (port 5353) responding → $DNSCRYPT_RESULT"
+          echo "🌐 Testing DNS resolution chain through AdGuard Home (port 53)..."
+          drill_in() { docker exec aduncrypt-test drill "$@"; }
+          for port in 53 5053 5353; do
+            addr=$(drill_in -p "$port" google.com @127.0.0.1 A | awk '/^google\.com\./ && $4=="A" {print $5; exit}')
+            [ -n "$addr" ] || { echo "❌ No answer on port $port"; docker logs aduncrypt-test; exit 1; }
+            echo "✅ Port $port responding → $addr"
+          done
+
+          echo "🔒 Testing DNSSEC validation end to end..."
+          if drill_in -D cloudflare.com @127.0.0.1 A | grep -E '^;; flags:' | grep -qw ad; then
+            echo "✅ AD flag set for a signed zone"
           else
-            echo "❌ DNSCrypt-proxy not responding" && exit 1
+            echo "❌ No AD flag through AdGuard Home"; exit 1
+          fi
+          if drill_in dnssec-failed.org @127.0.0.1 A | grep -q SERVFAIL; then
+            echo "✅ Badly signed zone rejected"
+          else
+            echo "❌ Badly signed zone was not rejected"; exit 1
           fi
 
-          # Test Unbound
-          UNBOUND_RESULT=$(docker exec aduncrypt-test drill -p 5053 google.com @127.0.0.1 A | awk '/^google\.com\./ && $4=="A" {print $5; exit}')
-          if [ -n "$UNBOUND_RESULT" ]; then
-            echo "✅ Unbound (port 5053) responding → $UNBOUND_RESULT"
-          else
-            echo "❌ Unbound not responding" && exit 1
-          fi
+          echo "🩺 Running the container healthcheck against the configured stack..."
+          docker exec aduncrypt-test sh /opt/scripts/healthcheck.sh
+          echo "✅ Healthcheck passed"
 
-          # Test DNSSEC validation: Unbound itself must set the AD flag on a
-          # correctly signed zone and reject a badly signed one
-          echo "🔒 Testing DNSSEC validation..."
-          if docker exec aduncrypt-test drill -D -p 5053 cloudflare.com @127.0.0.1 A | grep -E '^;; flags:' | grep -qw ad; then
-            echo "✅ DNSSEC validation working (AD flag set for signed zone)"
-          else
-            echo "❌ DNSSEC validation not working (no AD flag)" && exit 1
-          fi
-          if docker exec aduncrypt-test drill -D -p 5053 dnssec-failed.org @127.0.0.1 A | grep -q "SERVFAIL"; then
-            echo "✅ DNSSEC validation working (correctly rejecting invalid signatures)"
-          else
-            echo "❌ DNSSEC validation not working" && exit 1
-          fi
-
-          # Cleanup
           docker stop aduncrypt-test
           echo "🎉 All tests passed! DNS privacy stack is working correctly."
 
