@@ -3,11 +3,11 @@ set -e
 
 if [ ! -f /var/lib/unbound/root.key ]; then
   echo "Bootstrapping the root trust anchor for DNSSEC validation..."
-  # unbound-anchor exits 1 when it had to fetch or update the anchor, 0 when nothing changed
   unbound-anchor -a /var/lib/unbound/root.key || [ $? -eq 1 ]
 fi
-# Unbound updates the anchor itself (RFC 5011) and needs to write the directory
+
 chown -R unbound:unbound /var/lib/unbound
+chown -R dnscrypt:dnscrypt /var/cache/dnscrypt-proxy
 
 echo "Checking Unbound configuration..."
 unbound-checkconf /opt/unbound/unbound.conf
@@ -35,7 +35,8 @@ AGH_PID=$!
 # Keep running only while all three services are alive. If any of them dies
 # the container exits so the restart policy brings the whole stack back,
 # instead of running degraded on the fallback path.
-while kill -0 "$DNSCRYPT_PID" 2>/dev/null \
+while [ -z "$STOPPING" ] \
+   && kill -0 "$DNSCRYPT_PID" 2>/dev/null \
    && kill -0 "$UNBOUND_PID" 2>/dev/null \
    && kill -0 "$AGH_PID" 2>/dev/null; do
   sleep 5 &

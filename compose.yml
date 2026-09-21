@@ -3,11 +3,29 @@ services:
     image: ghcr.io/iggstatic/aduncrypt:latest
     container_name: aduncrypt
     restart: unless-stopped
+    # Drop every capability and add back only what the stack needs. Root inside
+    # the container is then limited even on rootful Docker.
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE # ports 53 and 80
+      - CHOWN # entrypoint chowns the unbound and dnscrypt directories
+      - FOWNER # entrypoint chmods the AdGuard Home directories
+      - SETUID # unbound and dnscrypt-proxy drop privileges
+      - SETGID
+      - KILL # entrypoint watches and signals the unbound and dnscrypt processes
+      - DAC_OVERRIDE # read bind-mounted config files regardless of owner
+      #- NET_RAW # needed only for the AdGuard Home DHCP server
+    security_opt:
+      - no-new-privileges:true
     volumes:
       - "./adguard/opt-adguard-work:/opt/adguardhome/work"
       - "./adguard/opt-adguard-conf:/opt/adguardhome/conf"
       - "./unbound/unbound.conf:/opt/unbound/unbound.conf"
       - "./dnscrypt:/opt/dnscrypt"
+      # DNSSEC root trust anchor and cached dnscrypt-proxy resolver lists
+      - "aduncrypt-unbound:/var/lib/unbound"
+      - "aduncrypt-dnscrypt-cache:/var/cache/dnscrypt-proxy"
     ports:
       - 53:53/tcp # DNS
       - 53:53/udp # DNS
@@ -18,3 +36,7 @@ services:
       #- 853:853/tcp # AdGuard Home DNS-over-TLS/QUIC
       #- 67:67/udp # AdGuard Home DHCP (server)
       #- 68:68/udp # AdGuard Home DHCP (client)
+
+volumes:
+  aduncrypt-unbound:
+  aduncrypt-dnscrypt-cache:

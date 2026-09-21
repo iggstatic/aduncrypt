@@ -42,6 +42,9 @@ echo "net.ipv4.ip_unprivileged_port_start=53" | sudo tee /etc/sysctl.d/20-dns-pr
 sudo sysctl --system
 ```
 
+> [!NOTE]
+> **Using Docker instead?** The compose file works unchanged with `docker compose`, and the port 53 sysctl step above is not needed on rootful Docker. Rootful Docker runs container root as real host root, though. Prefer [rootless Docker](https://docs.docker.com/engine/security/rootless/) or enable [`userns-remap`](https://docs.docker.com/engine/security/userns-remap/) so the container gets the same user-namespace isolation rootless Podman provides by default. The compose file drops all capabilities the stack does not need, which limits what root inside the container can do either way.
+
 ### Deployment
 
 Download this repo and spin up a container:
@@ -80,7 +83,7 @@ podman-compose up -d
 
 ### Host System DNS Configuration
 
-**Disable systemd-resolved** (if running):
+**Point systemd-resolved at AdGuard Home and disable its stub listener** (if running):
 
 ```bash
 sudo nano /etc/systemd/resolved.conf
@@ -176,7 +179,7 @@ journalctl --user-unit=aduncrypt.service -b
 Test your DNS setup with these tools:
 
 - [1.1.1.1 Help](https://1.1.1.1/help) - Basic connectivity test
-- [BrowserLeaks DNS](https://browserleaks.com/dns) - Should show "Cloudflare" if nothing is changed
+- [BrowserLeaks DNS](https://browserleaks.com/dns) - Should show Cloudflare or Scaleway (crypto.sx), never your ISP
 - [DNSCheck Tools](https://dnscheck.tools/) - Comprehensive DNS analysis
 
 ## 📊 Ports

@@ -8,6 +8,9 @@
 #   - listen to all IPv4+IPv6 addresses: use `listen_addresses = ['[::]:53']`
 listen_addresses = ['127.0.0.1:5353']
 
+# Bind the listening socket as root, then drop privileges to this user
+user_name = 'dnscrypt'
+
 # Use servers reachable over IPv6
 ipv6_servers = false
 block_ipv6 = false
@@ -44,7 +47,9 @@ routes = [
     { server_name='odoh-crypto-sx', via=['odohrelay-numa'] }
 ]
 
-# ODoH (Oblivious DoH) servers and relays
+# ODoH (Oblivious DoH) servers and relays. The downloaded lists are cached
+# under /var/cache/dnscrypt-proxy, which compose.yml and the Quadlet file
+# keep in a named volume so a restart does not depend on reaching GitHub.
 [sources]
   [sources.'odoh-servers']
   urls = ['https://raw.githubusercontent.com/DNSCrypt/dnscrypt-resolvers/master/v3/odoh-servers.md', 'https://download.dnscrypt.info/resolvers-list/v3/odoh-servers.md', 'https://cdn.jsdelivr.net/gh/DNSCrypt/dnscrypt-resolvers@master/v3/odoh-servers.md']

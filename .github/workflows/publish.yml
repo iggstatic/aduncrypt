@@ -142,7 +142,7 @@ jobs:
           echo "🌐 Testing DNS resolution chain..."
 
           # Test DNSCrypt-proxy
-          DNSCRYPT_RESULT=$(docker exec aduncrypt-test dig @127.0.0.1 -p 5353 google.com +short | head -1)
+          DNSCRYPT_RESULT=$(docker exec aduncrypt-test drill -p 5353 google.com @127.0.0.1 A | awk '/^google\.com\./ && $4=="A" {print $5; exit}')
           if [ -n "$DNSCRYPT_RESULT" ]; then
             echo "✅ DNSCrypt-proxy (port 5353) responding → $DNSCRYPT_RESULT"
           else
@@ -150,7 +150,7 @@ jobs:
           fi
 
           # Test Unbound
-          UNBOUND_RESULT=$(docker exec aduncrypt-test dig @127.0.0.1 -p 5053 google.com +short | head -1)
+          UNBOUND_RESULT=$(docker exec aduncrypt-test drill -p 5053 google.com @127.0.0.1 A | awk '/^google\.com\./ && $4=="A" {print $5; exit}')
           if [ -n "$UNBOUND_RESULT" ]; then
             echo "✅ Unbound (port 5053) responding → $UNBOUND_RESULT"
           else
@@ -160,12 +160,12 @@ jobs:
           # Test DNSSEC validation: Unbound itself must set the AD flag on a
           # correctly signed zone and reject a badly signed one
           echo "🔒 Testing DNSSEC validation..."
-          if docker exec aduncrypt-test dig @127.0.0.1 -p 5053 cloudflare.com +dnssec | grep -E '^;; flags:' | grep -qw ad; then
+          if docker exec aduncrypt-test drill -D -p 5053 cloudflare.com @127.0.0.1 A | grep -E '^;; flags:' | grep -qw ad; then
             echo "✅ DNSSEC validation working (AD flag set for signed zone)"
           else
             echo "❌ DNSSEC validation not working (no AD flag)" && exit 1
           fi
-          if docker exec aduncrypt-test dig @127.0.0.1 -p 5053 dnssec-failed.org +dnssec | grep -q "SERVFAIL"; then
+          if docker exec aduncrypt-test drill -D -p 5053 dnssec-failed.org @127.0.0.1 A | grep -q "SERVFAIL"; then
             echo "✅ DNSSEC validation working (correctly rejecting invalid signatures)"
           else
             echo "❌ DNSSEC validation not working" && exit 1

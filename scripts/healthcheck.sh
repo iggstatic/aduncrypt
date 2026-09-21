@@ -17,4 +17,5 @@ DNS_PORT=$(awk '/^dns:/{s=1;next} /^[^ ]/{s=0} s && /^  port:/{print $2; exit}' 
 wget -q --spider --timeout=1 "http://localhost:${WEB_PORT:-80}" || exit 1
 
 # End-to-end resolution through AdGuard Home -> Unbound -> dnscrypt-proxy
-dig @127.0.0.1 -p "${DNS_PORT:-53}" +time=3 +tries=1 +short cloudflare.com | grep -q . || exit 1
+# drill options must come before the name: musl getopt does not reorder arguments
+drill -p "${DNS_PORT:-53}" cloudflare.com @127.0.0.1 A | grep -qE '^cloudflare\.com\.[[:space:]]+[0-9]+[[:space:]]+IN[[:space:]]+A[[:space:]]' || exit 1
