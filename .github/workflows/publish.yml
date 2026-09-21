@@ -157,8 +157,14 @@ jobs:
             echo "❌ Unbound not responding" && exit 1
           fi
 
-          # Test DNSSEC validation
+          # Test DNSSEC validation: Unbound itself must set the AD flag on a
+          # correctly signed zone and reject a badly signed one
           echo "🔒 Testing DNSSEC validation..."
+          if docker exec aduncrypt-test dig @127.0.0.1 -p 5053 cloudflare.com +dnssec | grep -E '^;; flags:' | grep -qw ad; then
+            echo "✅ DNSSEC validation working (AD flag set for signed zone)"
+          else
+            echo "❌ DNSSEC validation not working (no AD flag)" && exit 1
+          fi
           if docker exec aduncrypt-test dig @127.0.0.1 -p 5053 dnssec-failed.org +dnssec | grep -q "SERVFAIL"; then
             echo "✅ DNSSEC validation working (correctly rejecting invalid signatures)"
           else
