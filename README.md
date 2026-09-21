@@ -22,10 +22,10 @@ A containerized DNS privacy solution combining [AdGuard Home](https://github.com
 
 ### Prerequisites
 
-Install Podman and Podman Compose:
+Install `dig` for testing, git for cloning this repo, Podman and Podman Compose:
 
 ```bash
-sudo apt install podman podman-compose
+sudo apt install dnsutils git podman podman-compose
 ```
 
 ### System Configuration
@@ -76,18 +76,37 @@ podman-compose up -d
 
    Unbound caches, validates DNSSEC and forwards to DNSCrypt-proxy, which sends the query out over ODoH.
 
-2. Leave **Fallback DNS servers** empty. Adding DNSCrypt-proxy (`127.0.0.1:5353`) here would keep DNS working if Unbound ever hangs, but those answers would silently skip DNSSEC validation and DNS rebinding protection. The container restarts itself if Unbound exits, and under Quadlet the healthcheck restarts it if Unbound hangs, so a short outage is preferable to an unvalidated answer.
-3. **Bootstrap DNS servers** can be left empty — it is only used to resolve hostnames of encrypted upstreams and the upstream above is an IP address.
-4. Keep the default **Load-balancing** upstream mode (don't enable **Parallel requests**, otherwise queries bypass Unbound's cache).
-5. Uncheck **Enable cache** or set **DNS cache size** to `0` (caching is handled by Unbound)
+2. Keep the default **Load-balancing** upstream mode (don't enable **Parallel requests**, otherwise queries bypass Unbound's cache).
+3. Leave **Fallback DNS servers** empty. Adding DNSCrypt-proxy (`127.0.0.1:5353`) here would keep DNS working if Unbound ever hangs, but those answers would silently skip DNSSEC validation and DNS rebinding protection. The container restarts itself if Unbound exits, and under Quadlet the healthcheck restarts it if Unbound hangs, so a short outage is preferable to an unvalidated answer.
+4. **Bootstrap DNS servers** can be left empty — it is only used to resolve hostnames of encrypted upstreams and the upstream above is an IP address.
+5. Under **Private reverse DNS servers** enter your router's IP address (e.g. `192.168.1.1`) so client names show up in the query log. By default AdGuard Home sends reverse lookups for LAN addresses to the container's system resolver, which points back at the host and therefore at AdGuard Home itself. AdGuard Home detects the loop and answers NXDOMAIN, so client names never resolve. If your router does not answer reverse lookups (test with `dig -x <client-ip> @<router-ip>`), untick **Use private reverse DNS resolvers** instead.
 6. Enable **DNSSEC** in **DNS server configuration**. Validation is done by Unbound; this just passes the result on to clients.
-7. Under **Private reverse DNS servers** enter your router's IP address (e.g. `192.168.1.1`) so client names show up in the query log. By default AdGuard Home sends reverse lookups for LAN addresses to the container's system resolver, which points back at the host and therefore at AdGuard Home itself. AdGuard Home detects the loop and answers NXDOMAIN, so client names never resolve. If your router does not answer reverse lookups (test with `dig -x <client-ip> @<router-ip>`), untick **Use private reverse DNS resolvers** instead.
+7. Uncheck **Enable cache** or set **DNS cache size** to `0` (caching is handled by Unbound)
 8. Add blocklists in **Filters** → **DNS blocklists**:
    - [Blocklists and Allowlists Sources](https://github.com/T145/black-mirror)
 
 ### Host System DNS Configuration
 
-**Point systemd-resolved at AdGuard Home and disable its stub listener** (if running):
+Point the host itself at AdGuard Home. How depends on which service manages `/etc/resolv.conf`, which its first line tells you:
+
+```bash
+head -1 /etc/resolv.conf
+```
+
+Follow only the one of the three sections below that matches.
+
+#### NetworkManager (Raspberry Pi OS Bookworm and later, most desktop distributions)
+
+```bash
+# Find the active connection name, e.g. "Wired connection 1"
+nmcli connection show
+
+# Use only AdGuard Home and stop DHCP from adding the router's DNS next to it
+sudo nmcli connection modify "Wired connection 1" ipv4.dns 127.0.0.1 ipv4.ignore-auto-dns yes
+sudo nmcli connection up "Wired connection 1"
+```
+
+#### systemd-resolved (Ubuntu and derivatives)
 
 ```bash
 sudo nano /etc/systemd/resolved.conf
@@ -95,18 +114,23 @@ sudo nano /etc/systemd/resolved.conf
 # DNS=127.0.0.1
 # DNSStubListener=no
 sudo systemctl restart systemd-resolved
+
+# If /etc/resolv.conf still points at the stub (127.0.0.53), switch the
+# symlink to the file systemd-resolved writes from the DNS= setting above:
+sudo ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf
 ```
 
-**Update system resolver**:
+#### dhcpcd (Raspberry Pi OS Bullseye and older)
+
+Add `static domain_name_servers=127.0.0.1` to `/etc/dhcpcd.conf` and reboot.
+
+#### Verify
+
+Whichever path you took, `/etc/resolv.conf` should now contain only `nameserver 127.0.0.1`, and a lookup should succeed through it:
 
 ```bash
-# Check current configuration
 cat /etc/resolv.conf
-
-# Should contain: nameserver 127.0.0.1
-# If it still points at the stub (127.0.0.53), switch the symlink to the file
-# systemd-resolved writes from the DNS= setting above:
-sudo ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf
+dig google.com
 ```
 
 ### Enable Auto-Start (Optional)
