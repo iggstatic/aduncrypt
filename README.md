@@ -1,6 +1,6 @@
 # 🔒 AdUnCrypt - Privacy-Focused DNS Stack
 
-![AdGuard Home](https://img.shields.io/badge/AdGuard%20Home-v0.107.79-green?logo=adguard)
+![AdGuard Home](https://img.shields.io/badge/AdGuard%20Home-v0.107.80-green?logo=adguard)
 ![Build Status](https://img.shields.io/github/actions/workflow/status/iggstatic/aduncrypt/publish.yml?branch=master&label=Build&logo=github)
 ![License](https://img.shields.io/github/license/iggstatic/aduncrypt?logo=gnu)
 ![Multi-Arch](https://img.shields.io/badge/platform-linux%2Famd64%20%7C%20linux%2Farm64%20%7C%20linux%2Farm%2Fv7-blue?logo=docker)
